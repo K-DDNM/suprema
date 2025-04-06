@@ -37,15 +37,16 @@ final_message = "✨ ¡Gracias! En un momento te enviaremos los resultados. ✨"
 @app.route("/", methods=["POST"])
 def webhook():
     data = request.get_json()
-    print("📩 Webhook recibido:", data)
+    print(f"📩 Webhook recibido: {data}")  # Para debug
 
-    # Extraer datos del mensaje de Zoko
+    # Extrae los datos según el formato de Zoko
     from_number = data.get("platformSenderId", "")
     text = data.get("text", "").strip().upper()
 
     if not from_number or not text:
-        return jsonify({"reply": "No entendí tu mensaje 😅"})
+        return jsonify({"reply": "No se pudo leer el mensaje 😕"})
 
+    # Iniciar test si es nuevo
     if from_number not in user_states:
         user_states[from_number] = {
             "step": 0,
@@ -55,16 +56,17 @@ def webhook():
 
     state = user_states[from_number]
 
+    # Validar respuesta previa (si aplica)
     if state["step"] > 0:
         if text not in ["A", "B", "C", "D", "E"]:
             return jsonify({"reply": "✋ Responde solo con una letra: A, B, C, D o E."})
         state["answers"].append(text)
 
+    # Avanzar paso
     state["step"] += 1
 
     if state["step"] < len(questions):
-        next_question = questions[state["step"]]
-        return jsonify({"reply": next_question})
+        return jsonify({"reply": questions[state["step"]]})
     else:
         del user_states[from_number]
         return jsonify({"reply": final_message})
