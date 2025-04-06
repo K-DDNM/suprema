@@ -36,8 +36,9 @@ final_message = "✨ ¡Gracias! En un momento te enviaremos los resultados. ✨"
 
 @app.route("/", methods=["POST"])
 def webhook():
-    data = request.get_json()
-    print(f"📩 Webhook recibido: {data}")  # Para debug
+    print("✅ Recibido mensaje en webhook")
+    return jsonify({"reply": "¡Funciona!"})
+
 
     # Extrae los datos según el formato de Zoko
     from_number = data.get("platformSenderId", "")
