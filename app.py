@@ -37,7 +37,15 @@ final_message = "✨ ¡Gracias! En un momento te enviaremos los resultados. ✨"
 @app.route("/", methods=["POST"])
 def webhook():
     print("✅ Recibido mensaje en webhook")
-    return jsonify({"reply": "¡Funciona!"})
+    return jsonify({
+        "messages": [
+            {
+                "text": "¡Funciona!",
+                "type": "text"
+            }
+        ]
+    })
+
 
 
     # Extrae los datos según el formato de Zoko
