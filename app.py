@@ -34,14 +34,17 @@ questions = [
 
 final_message = "✨ ¡Gracias! En un momento te enviaremos los resultados. ✨"
 
-@app.route("/", methods=["POST"])  # CAMBIADO: de /zoko-webhook a /
+@app.route("/", methods=["POST"])
 def webhook():
     data = request.get_json()
     print("📩 Webhook recibido:", data)
 
-    message = data.get("messages", [{}])[0]
-    from_number = message.get("from", "")
-    text = message.get("text", {}).get("body", "").strip().upper()
+    # Extraer datos del mensaje de Zoko
+    from_number = data.get("platformSenderId", "")
+    text = data.get("text", "").strip().upper()
+
+    if not from_number or not text:
+        return jsonify({"reply": "No entendí tu mensaje 😅"})
 
     if from_number not in user_states:
         user_states[from_number] = {
@@ -65,6 +68,3 @@ def webhook():
     else:
         del user_states[from_number]
         return jsonify({"reply": final_message})
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)  # CAMBIADO: puerto 8080 para Railway
