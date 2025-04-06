@@ -34,39 +34,37 @@ questions = [
 
 final_message = "✨ ¡Gracias! En un momento te enviaremos los resultados. ✨"
 
-@app.route("/zoko-webhook", methods=["POST"])
+@app.route("/", methods=["POST"])  # CAMBIADO: de /zoko-webhook a /
 def webhook():
     data = request.get_json()
+    print("📩 Webhook recibido:", data)
+
     message = data.get("messages", [{}])[0]
     from_number = message.get("from", "")
     text = message.get("text", {}).get("body", "").strip().upper()
 
-    # Iniciar test si es nuevo
     if from_number not in user_states:
         user_states[from_number] = {
             "step": 0,
             "answers": []
         }
-        return jsonify({"reply": questions[0]})  # Mensaje de introducción
+        return jsonify({"reply": questions[0]})
 
     state = user_states[from_number]
 
-    # Validar respuesta previa (si aplica)
     if state["step"] > 0:
         if text not in ["A", "B", "C", "D", "E"]:
             return jsonify({"reply": "✋ Responde solo con una letra: A, B, C, D o E."})
         state["answers"].append(text)
 
-    # Avanzar a siguiente pregunta
     state["step"] += 1
 
     if state["step"] < len(questions):
         next_question = questions[state["step"]]
         return jsonify({"reply": next_question})
     else:
-        # Fin del test
         del user_states[from_number]
         return jsonify({"reply": final_message})
 
 if __name__ == "__main__":
-    app.run(port=5000)
+    app.run(host="0.0.0.0", port=8080)  # CAMBIADO: puerto 8080 para Railway
