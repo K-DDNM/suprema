@@ -1,9 +1,17 @@
 from flask import Flask, request, jsonify
+import requests
+import os
 
 app = Flask(__name__)
 
+# Token de acceso de Zoko - deberías configurar esto como variable de entorno en Railway
+ZOKO_API_TOKEN = os.environ.get('ZOKO_API_TOKEN')
+# URL de la API de Zoko para enviar mensajes
+ZOKO_API_URL = "https://api.zoko.io/v2/messages"
+
 # Almacena el progreso por número de teléfono
 user_states = {}
+
 
 # Preguntas del test
 questions = [
@@ -32,6 +40,29 @@ questions = [
     "11/11: ¿Qué te hace dudar MÁS de alguien al principio? (Tu 'red flag')\nA) Demasiado lento/predecible 🔥\nB) Cínico/poco romántico 💖\nC) Impulsivo/caótico 📊\nD) Distante/desinteresado 🤗\nE) Muy intenso/pegajoso 🕊️\n🚨 Escuchar esa vocecita interna es clave."
 ]
 
+def send_zoko_message(phone_number, message_text):
+    """Envía un mensaje a través de la API de Zoko"""
+    headers = {
+        "Authorization": f"Bearer {ZOKO_API_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    
+    payload = {
+        "recipient": phone_number,
+        "type": "text",
+        "message": {
+            "text": message_text
+        }
+    }
+    
+    try:
+        response = requests.post(ZOKO_API_URL, json=payload, headers=headers)
+        print(f"Respuesta de Zoko: {response.status_code} - {response.text}")
+        return response.ok
+    except Exception as e:
+        print(f"Error al enviar mensaje a Zoko: {e}")
+        return False
+
 @app.route("/", methods=["POST"])
 def webhook():
     data = request.get_json()
@@ -42,7 +73,7 @@ def webhook():
     message_text = data.get("text", "").strip().upper()
 
     if not sender:
-        return jsonify({"error": "Falta el número del remitente"}), 400
+        return jsonify({"status": "error", "message": "Falta el número del remitente"}), 400
 
     # Inicializa el progreso si es la primera vez
     if sender not in user_states:
@@ -61,38 +92,22 @@ def webhook():
         state["current_question"] = q_index
     elif q_index > 0:
         # Si no responde con A-E, no avanza y reenvía la misma pregunta
-        response_text = "Responde solo con A, B, C, D o E 😊"
-        # Formato correcto para Zoko
-        return jsonify({
-            "messages": [
-                {
-                    "type": "text",
-                    "text": response_text
-                }
-            ]
-        })
+        send_zoko_message(sender, "Responde solo con A, B, C, D o E 😊")
+        return jsonify({"status": "success"}), 200
 
     # Final del test
     if q_index >= len(questions):
         final_msg = "🎉 ¡Gracias por completar el test! Pronto recibirás tu resultado ❤️"
         # Puedes procesar las respuestas si deseas
         del user_states[sender]  # Opcional: reiniciar conversación
-        return jsonify({
-            "messages": [
-                {
-                    "type": "text",
-                    "text": final_msg
-                }
-            ]
-        })
+        send_zoko_message(sender, final_msg)
+    else:
+        # Enviar la siguiente pregunta
+        next_question = questions[q_index]
+        send_zoko_message(sender, next_question)
 
-    # Enviar la siguiente pregunta
-    next_question = questions[q_index]
-    return jsonify({
-        "messages": [
-            {
-                "type": "text",
-                "text": next_question
-            }
-        ]
-    })
+    # Siempre responde con éxito al webhook
+    return jsonify({"status": "success"}), 200
+
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=8080)
