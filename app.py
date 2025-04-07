@@ -57,8 +57,15 @@ def send_zoko_message(phone_number, message_text):
     
     try:
         data = json.dumps(payload).encode('utf-8')
+        
+        # Crear un contexto SSL que no verifique el certificado (solo para pruebas)
+        import ssl
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        
         req = urllib.request.Request(ZOKO_API_URL, data=data, headers=headers, method='POST')
-        with urllib.request.urlopen(req) as response:
+        with urllib.request.urlopen(req, context=ctx) as response:
             response_text = response.read().decode('utf-8')
             print(f"Respuesta de Zoko: {response.status} - {response_text}")
         return True
