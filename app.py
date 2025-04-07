@@ -61,11 +61,15 @@ def webhook():
         state["current_question"] = q_index
     elif q_index > 0:
         # Si no responde con A-E, no avanza y reenvía la misma pregunta
+        response_text = "Responde solo con A, B, C, D o E 😊"
+        # Formato correcto para Zoko
         return jsonify({
-            "recipient": sender,
-            "message": {
-                "text": "Responde solo con A, B, C, D o E 😊"
-            }
+            "messages": [
+                {
+                    "type": "text",
+                    "text": response_text
+                }
+            ]
         })
 
     # Final del test
@@ -74,20 +78,21 @@ def webhook():
         # Puedes procesar las respuestas si deseas
         del user_states[sender]  # Opcional: reiniciar conversación
         return jsonify({
-            "recipient": sender,
-            "message": {
-                "text": final_msg
-            }
+            "messages": [
+                {
+                    "type": "text",
+                    "text": final_msg
+                }
+            ]
         })
 
     # Enviar la siguiente pregunta
     next_question = questions[q_index]
     return jsonify({
-        "recipient": sender,
-        "message": {
-            "text": next_question
-        }
+        "messages": [
+            {
+                "type": "text",
+                "text": next_question
+            }
+        ]
     })
-
-if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=8080)
