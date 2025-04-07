@@ -2,13 +2,13 @@ from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-# Simula una base de datos temporal en memoria
+# Almacena el progreso por número de teléfono
 user_states = {}
 
-# Lista de mensajes (introducción + 11 preguntas)
+# Preguntas del test
 questions = [
     "¡Hola! 👋 ¿Lista para un escáner rápido a tu corazón? 😉\n\n¿Te has preguntado por qué a veces conectas más con alguien que no es el 'bueno' del cuento? 🤔\n¿O por qué te sientes atraída hacia cierto tipo de persona una y otra vez, aunque la relación acabe doliendo? 🤷‍♀️\n\nEste test usa psicología femenina ✨ para revelar qué busca tu subconsciente, a qué tipo de persona eres más vulnerable, cuáles son tus 'poderes' secretos en el amor y por qué repites patrones.\n\nResponde solo con la letra (A, B, C, D o E) que más te represente. ¡Empezamos! 🚀",
-    
+
     "1/11: Sin pareja, ¿qué echas más de menos?\nA) Emoción/chispa del principio 🔥\nB) Conexión profunda/compartir 💖\nC) Tranquilidad/estabilidad 🏡\nD) Compañía/cariño constante 🤗\nE) Nada en especial, disfruto mi espacio 🕊️\n💡 Lo que extrañas revela qué valoras.",
 
     "2/11: Aparte del físico, ¿qué te atrae más?\nA) Atrevimiento/aventura 🔥\nB) Cariño/romanticismo 💖\nC) Madurez/confianza 📊\nD) Atención/sentirte especial 🤗\nE) Independencia/espacio 🕊️\n👀 Lo que te atrae destapa patrones.",
@@ -32,50 +32,62 @@ questions = [
     "11/11: ¿Qué te hace dudar MÁS de alguien al principio? (Tu 'red flag')\nA) Demasiado lento/predecible 🔥\nB) Cínico/poco romántico 💖\nC) Impulsivo/caótico 📊\nD) Distante/desinteresado 🤗\nE) Muy intenso/pegajoso 🕊️\n🚨 Escuchar esa vocecita interna es clave."
 ]
 
-final_message = "✨ ¡Gracias! En un momento te enviaremos los resultados. ✨"
-
 @app.route("/", methods=["POST"])
 def webhook():
-    print("✅ Recibido mensaje en webhook")
-    return jsonify({
-        "messages": [
-            {
-                "text": "¡Funciona!",
-                "type": "text"
-            }
-        ]
-    })
+    data = request.get_json()
+    print("✅ Recibido mensaje en webhook:", data)
 
+    # Extrae el número de teléfono del remitente
+    sender = data.get("platformSenderId", "")
+    message_text = data.get("text", "").strip().upper()
 
+    if not sender:
+        return jsonify({"error": "Falta el número del remitente"}), 400
 
-    # Extrae los datos según el formato de Zoko
-    from_number = data.get("platformSenderId", "")
-    text = data.get("text", "").strip().upper()
-
-    if not from_number or not text:
-        return jsonify({"reply": "No se pudo leer el mensaje 😕"})
-
-    # Iniciar test si es nuevo
-    if from_number not in user_states:
-        user_states[from_number] = {
-            "step": 0,
+    # Inicializa el progreso si es la primera vez
+    if sender not in user_states:
+        user_states[sender] = {
+            "current_question": 0,
             "answers": []
         }
-        return jsonify({"reply": questions[0]})
 
-    state = user_states[from_number]
+    state = user_states[sender]
+    q_index = state["current_question"]
 
-    # Validar respuesta previa (si aplica)
-    if state["step"] > 0:
-        if text not in ["A", "B", "C", "D", "E"]:
-            return jsonify({"reply": "✋ Responde solo con una letra: A, B, C, D o E."})
-        state["answers"].append(text)
+    # Guarda la respuesta anterior si no es la primera pregunta
+    if q_index > 0 and message_text in ["A", "B", "C", "D", "E"]:
+        state["answers"].append(message_text)
+        q_index += 1
+        state["current_question"] = q_index
+    elif q_index > 0:
+        # Si no responde con A-E, no avanza y reenvía la misma pregunta
+        return jsonify({
+            "recipient": sender,
+            "message": {
+                "text": "Responde solo con A, B, C, D o E 😊"
+            }
+        })
 
-    # Avanzar paso
-    state["step"] += 1
+    # Final del test
+    if q_index >= len(questions):
+        final_msg = "🎉 ¡Gracias por completar el test! Pronto recibirás tu resultado ❤️"
+        # Puedes procesar las respuestas si deseas
+        del user_states[sender]  # Opcional: reiniciar conversación
+        return jsonify({
+            "recipient": sender,
+            "message": {
+                "text": final_msg
+            }
+        })
 
-    if state["step"] < len(questions):
-        return jsonify({"reply": questions[state["step"]]})
-    else:
-        del user_states[from_number]
-        return jsonify({"reply": final_message})
+    # Enviar la siguiente pregunta
+    next_question = questions[q_index]
+    return jsonify({
+        "recipient": sender,
+        "message": {
+            "text": next_question
+        }
+    })
+
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=8080)
