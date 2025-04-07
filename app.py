@@ -1,17 +1,17 @@
 from flask import Flask, request, jsonify
-import requests
+import urllib.request
+import urllib.parse
+import json
 import os
 
 app = Flask(__name__)
 
-# Token de acceso de Zoko - deberías configurar esto como variable de entorno en Railway
-ZOKO_API_TOKEN = os.environ.get('ZOKO_API_TOKEN')
-# URL de la API de Zoko para enviar mensajes
+# Token de acceso de Zoko
+ZOKO_API_TOKEN = os.environ.get('ZOKO_API_TOKEN', '')  # Usa un valor predeterminado vacío
 ZOKO_API_URL = "https://api.zoko.io/v2/messages"
 
 # Almacena el progreso por número de teléfono
 user_states = {}
-
 
 # Preguntas del test
 questions = [
@@ -41,7 +41,7 @@ questions = [
 ]
 
 def send_zoko_message(phone_number, message_text):
-    """Envía un mensaje a través de la API de Zoko"""
+    """Envía un mensaje a través de la API de Zoko usando urllib"""
     headers = {
         "Authorization": f"Bearer {ZOKO_API_TOKEN}",
         "Content-Type": "application/json"
@@ -56,9 +56,12 @@ def send_zoko_message(phone_number, message_text):
     }
     
     try:
-        response = requests.post(ZOKO_API_URL, json=payload, headers=headers)
-        print(f"Respuesta de Zoko: {response.status_code} - {response.text}")
-        return response.ok
+        data = json.dumps(payload).encode('utf-8')
+        req = urllib.request.Request(ZOKO_API_URL, data=data, headers=headers, method='POST')
+        with urllib.request.urlopen(req) as response:
+            response_text = response.read().decode('utf-8')
+            print(f"Respuesta de Zoko: {response.status} - {response_text}")
+        return True
     except Exception as e:
         print(f"Error al enviar mensaje a Zoko: {e}")
         return False
